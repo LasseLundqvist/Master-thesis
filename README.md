@@ -3,7 +3,12 @@ Code associated with my master thesis
 
 
 #Calibration methodlogy 
-# 1. Load vairables and parameters
+# 1. Import relative modules and load vairables and parameters
+import numpy as np
+from scipy.stats import norm
+from scipy.optimize import minimize
+import pandas as pd
+
 parameters = pd.read_excel("til rollo.xlsx")
 V_equity = parameters["E"].values
 sigma_equity = parameters["sigma_E"].values
