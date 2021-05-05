@@ -1,0 +1,114 @@
+########################## Merton model ##########################
+# 1.1 Define the Maximum Likelihood Function and the input parameters
+mle <- function(parameters,Data,index=1){
+  mu <- parameters[1]
+  sigma <- parameters[2]
+  
+  D <- Data$D
+  E <- Data$E
+  r <- Data$r
+  T <- Data$T*250
+  
+  A <- D[1]+E[1]
+  f <- 0
+  pdf <- 0
+  llf <- 0
+  
+  Merton <- function(A, D, E, r, T,t,sigma){
+    d <- (log(A/D)+(r+0.5*sigma^2)*(T-t))/(sigma*sqrt(T-t))
+    f <- E-A*pnorm(d)+D*pnorm(d-sigma*sqrt(T-t))
+    f <- abs(f)
+    return(f)
+  }
+
+  for (i in 2:length(E)){
+    t <- i
+    result <- optimize(f = Merton, c(0, max(D+E)*2), tol =  1e-05, D=D[i], E=E[i], r=r[i], T=T[i], t=t, sigma=sigma)
+    A[i] <- result[["minimum"]]
+    f[i] <- round(result[["objective"]],4)
+    
+    # Likelihood function
+    pdf <- 1/(sqrt(2*pi)*sigma)*exp(-(log(A[i])-log(A[i-1])-(mu-1/2*sigma^2))^2/(2*sigma^2))/A[i]
+    llf <- llf + log(pdf/pnorm((log(A[i]/D[i])+(r[i]+0.5*sigma^2)*(T[i]-t))/(sigma*sqrt(T[i]-t))))
+  }
+  print(paste("Log-likelihood", -round(llf,3), sep = "        "))
+  
+  if(index==1){
+    return(-llf)
+  }else if(index==2){
+    return(A)
+  }
+  
+}
+
+############################# Step 1 ############################
+# 2. Read data
+wd <- "C:/Users/PCUser/Desktop/MLE-python.txt" # Sæt stien til data i txt-format
+Data <- read.table(wd,header = TRUE, sep ="")
+Data$t <- 1:length(Data$date)
+Data$date <- as.Date(Data$date, format= "%d-%m-%Y")
+
+############################# Step 2 ############################
+# 3. Rolling window, 25 days pr. sample 
+d <- 25 # 
+mu1 <- rep(NA,1,(length(Data$t)-d))
+sigma1 <- rep(NA,1,(length(Data$t)-d))
+muhat1 <- rep(NA,1,(length(Data$t)-d))
+sigmahat1 <- rep(NA,1,(length(Data$t)-d))
+A <- rep(NA,1,(length(Data$t)))
+for (t in 1:(length(Data$t)-d)){
+  #MLE
+  days <- t+d-1
+  mu1[t] <- mean(diff(log(Data$E[((days-d):days)]),1))
+  sigma1[t] <- sqrt(var(Data$E[((days-d):days)]))/100/sqrt(250/12) #Rettet fra sqrt(var(Data$E)/100/sqrt(250)). Alno 20. apr.
+  startv <- c(mu1[t],sigma1[t])
+  est <- optim(startv, mle,Data=Data[((days-d):days),])
+  muhat1[t] <- est[["par"]][1]
+  sigmahat1[t] <- est[["par"]][2]
+  A[((days-d):days)]<-mle(c( muhat1[t],sigmahat1[t]),Data=Data[((days-d):days),],index=2)
+}
+
+# (3.1 Full sample)
+#MLE
+mu0 <- mean(diff(log(Data$E),1))
+sigma0 <- sqrt(var(Data$E))/100/sqrt(250)  #Rettet fra sqrt(var(Data$E)/100/sqrt(250)). Alno 20. apr.
+startv <- c(mu0,sigma0)
+
+est <- optim(startv, mle,Data=Data)
+muhat0 <- est[["par"]][1]
+sigmahat0 <- est[["par"]][2]
+
+
+# 4. Plot figures for volatility and drift 
+plot(Data$date[d:(length(Data$date)-1)], sigmahat1*sqrt(250)*100, type="l", col="blue", pch="o", lty=1, ylab = "pct.", xlab = "2020", ylim=c(0,100))
+lines(Data$date[d:(length(Data$date)-1)],rep(sigmahat0*sqrt(250)*100,1,length(sigmahat1)), col="blue",lty=2)
+lines(Data$date[d:(length(Data$date)-1)], sigma1*sqrt(250)*100, col="yellow",lty=1)
+lines(Data$date[d:(length(Data$date)-1)],rep(sqrt(var(Data$E))/(250),1,length(sigma1)), col="yellow",lty=1)
+legend("topright",legend=c("Assets, -25d vol","Assets, full vol","Equity, -25d vol","Equity, full vol"), col=c("blue","blue","yellow","yellow"),lty=1:2, ncol=1, cex = 0.55, box.col = "white")
+
+############################# Plots of the Likelihood function  ############################
+# (4.1 Plot the Likelihood function with constant paramter values
+upper <- (muhat0+muhat0*0.5)*1000
+lower <- (muhat0-muhat0*0.5)*1000
+mu0 <- seq(lower,upper, by=-0.001)/1000
+llf <- 0
+for (j in 1:length(mu0)){
+  llf[j] <- -mle(c(mu0[j],sigmahat0),Data)
+}
+plot(mu0, llf)
+
+upper <- sigmahat0+sigmahat0*0.9
+lower <- sigmahat0-sigmahat0*0.5
+sigma0 <- seq(lower,upper, by=0.0001)
+llf <- 0
+for (j in 1:length(sigma0)){
+  llf[j] <- -mle(c(muhat0,sigma0[j]),Data)
+}
+plot(sigma0*sqrt(250), llf)
+
+# 5. Convert output to Excel
+wd = "C:/Users/PCUser/Desktop/MLE-pythonny.txt"
+write.table(cbind(sigmahat1*sqrt(250),muhat1,sigma1*sqrt(250)),wd,row.names = FALSE,sep=";")
+wd = "C:/Users/PCUser/Desktop/MLE-pythonA.txt"
+write.table(A,wd,row.names = FALSE,sep=";")
+
