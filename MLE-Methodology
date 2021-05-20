@@ -68,6 +68,19 @@ for (t in 1:(length(Data$t)-d)){
   A[((days-d):days)]<-mle(c( muhat1[t],sigmahat1[t]),Data=Data[((days-d):days),],index=2)
 }
 
+
+#MLE SD ERRORS
+{
+par <- as.data.frame(est[["par"]]);names(par) <- c("Estimates")
+rownames(par) <- c("mu","sigma")
+fisher <- solve(est$hessian); err <- c(sqrt(diag(fisher)));
+par$Estimates <- round(par$Estimates,4)
+par$'t-stat' <- round(par$Estimates/err,2)
+par$Lower <- round(par$Estimates-1.96*err,4); par$Upper <- round(par$Estimates+1.96*err,4)
+print(paste("Merton model MLE estimation",sep=""))
+print(par)
+}
+
 # (3.1 Full sample)
 #MLE
 mu0 <- mean(diff(log(Data$E),1))
