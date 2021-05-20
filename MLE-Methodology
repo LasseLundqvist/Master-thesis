@@ -71,14 +71,14 @@ for (t in 1:(length(Data$t)-d)){
 
 #MLE SD ERRORS
 {
-par <- as.data.frame(est[["par"]]);names(par) <- c("Estimates")
-rownames(par) <- c("mu","sigma")
-fisher <- solve(est$hessian); err <- c(sqrt(diag(fisher)));
-par$Estimates <- round(par$Estimates,4)
-par$'t-stat' <- round(par$Estimates/err,2)
-par$Lower <- round(par$Estimates-1.96*err,4); par$Upper <- round(par$Estimates+1.96*err,4)
+par[t] <- as.data.frame(est[["par[t]"]]);names(par[t]) <- c("Estimates[t]")
+rownames(par[t]) <- c("mu1[t]","sigma1[t]")
+fisher[t] <- solve(est$hessian[t]); err[t] <- c(sqrt(diag(fisher[t])));
+par$Estimates[t] <- round(par$Estimates[t],4)
+par$'t-stat'[t] <- round(par$Estimates[t]/err[t],2)
+par$Lower[t] <- round(par$Estimates[t]-1.96*err,4); par$Upper[t] <- round(par$Estimates[t]+1.96*err,4)
 print(paste("Merton model MLE estimation",sep=""))
-print(par)
+print(par[t])
 }
 
 # (3.1 Full sample)
